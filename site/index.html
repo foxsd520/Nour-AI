@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="author" content="FoxSD" />
+<title>Nour-AI — FoxSD</title>
+<style>
+  :root{
+    --bg:#070b12; --panel:rgba(255,255,255,.04); --line:rgba(255,255,255,.10);
+    --txt:#e8eef7; --mut:#93a3b8; --acc:#22d3a6; --acc2:#3b82f6;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; color:var(--txt); font-family:"Segoe UI",Tahoma,system-ui,sans-serif;
+    background:
+      radial-gradient(900px 500px at 85% -10%, rgba(34,211,166,.16), transparent 60%),
+      radial-gradient(800px 500px at 0% 0%, rgba(59,130,246,.14), transparent 55%),
+      var(--bg);
+  }
+  .wrap{max-width:940px;margin:0 auto;padding:64px 22px 80px}
+  .badge{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--acc);
+    border:1px solid var(--line);background:var(--panel);padding:6px 14px;border-radius:999px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 12px var(--acc)}
+  h1{font-size:clamp(40px,7vw,68px);margin:22px 0 10px;line-height:1.05;letter-spacing:-1px}
+  h1 span{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{color:var(--mut);font-size:clamp(16px,2.2vw,20px);max-width:680px;line-height:1.8}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:40px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;backdrop-filter:blur(6px)}
+  .card h3{margin:0 0 8px;font-size:17px;color:var(--acc)}
+  .card p{margin:0;color:var(--mut);font-size:14.5px;line-height:1.7}
+  .rule{margin-top:34px;border:1px solid rgba(34,211,166,.35);background:linear-gradient(180deg,rgba(34,211,166,.08),transparent);
+    border-radius:16px;padding:22px}
+  .rule h2{margin:0 0 10px;font-size:19px}
+  .rule ul{margin:0;padding-inline-start:20px;color:var(--mut);line-height:2}
+  .files{margin-top:34px}
+  .files a{display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:var(--txt);
+    border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:14px 18px;margin-bottom:10px;transition:.2s}
+  .files a:hover{border-color:var(--acc);transform:translateY(-2px)}
+  .files small{color:var(--mut)}
+  code{background:rgba(255,255,255,.07);padding:2px 8px;border-radius:6px;font-size:13.5px;direction:ltr;display:inline-block}
+  footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);color:var(--mut);font-size:14px;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between}
+  footer b{color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="badge"><span class="dot"></span> وكيل ذكاء اصطناعي تجاري — FoxSD</span>
+
+  <h1><span>Nour-AI</span></h1>
+  <p class="lead">يسمع طلبك بالعربية ثم يبنيه فعليًا: برامج، مواقع، تطبيقات، سكربتات، وأنظمة تشغيل.
+  يكتب الملفات، يشغّلها، ويختبرها بنفسه — بلا تدخّل منك.</p>
+
+  <div class="grid">
+    <div class="card"><h3>يبني</h3><p>مواقع، تطبيقات ويب، أنظمة تشغيل وبرمجيات نظام، سكربتات وأدوات.</p></div>
+    <div class="card"><h3>يختبر</h3><p>يشغّل ما بناه ويتحقّق من عمله قبل أن يُعلن الانتهاء.</p></div>
+    <div class="card"><h3>يتكلّم لغتك</h3><p>تفاهم طبيعي بالعربية — اطلب بجملة واحدة.</p></div>
+    <div class="card"><h3>هوية واحدة</h3><p>كل مخرَج يحمل اسم FoxSD وبيانات التواصل فقط.</p></div>
+  </div>
+
+  <div class="rule">
+    <h2>القاعدة الذهبية</h2>
+    <ul>
+      <li>كل مخرَج يحمل اسم <b>FoxSD</b> والبريد <code>foxsd520@gmail.com</code> فقط.</li>
+      <li>ممنوع ذكر أي شركة أو علامة تجارية خارجية في أي مخرَج.</li>
+      <li>يعمل على «محرّك FoxSD الداخلي» ولا يفصح عن أي مزوّد خارجي.</li>
+    </ul>
+  </div>
+
+  <div class="files">
+    <h2 style="font-size:19px;margin-bottom:14px">ملفات المشروع</h2>
+    <a href="../nour_ai.py" download><span>nour_ai.py</span><small>الوكيل</small></a>
+    <a href="../README.md" download><span>README.md</span><small>دليل الاستخدام</small></a>
+    <a href="../requirements.txt" download><span>requirements.txt</span><small>الاعتماديات</small></a>
+    <a href="../AGENTS.md" download><span>AGENTS.md</span><small>قواعد المشروع</small></a>
+  </div>
+
+  <p class="lead" style="margin-top:30px">للتشغيل: <code>pip install -r requirements.txt</code> ثم <code>python nour_ai.py</code></p>
+
+  <footer>
+    <span>© <b>FoxSD</b> — جميع الحقوق محفوظة</span>
+    <span>للتواصل: <b>foxsd520@gmail.com</b></span>
+  </footer>
+</div>
+</body>
+</html>

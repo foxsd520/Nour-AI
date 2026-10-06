@@ -16,19 +16,27 @@
 
 ## البنية
 
-- `nour_ai.py` — الوكيل (يستخدم OpenHands SDK داخليًا، وهو تفصيل تنفيذي لا يُذكر في مخرَجات الوكيل).
+- `nour_core.py` — النواة: الهوية (BRAND_LOCK)، جلب صلاحية المحرّك، الذاكرة، البناء.
+- `nour_server.py` — خادم FastAPI + بث SSE.
+- `nour_web.html` — واجهة المحادثة العربية.
+- `nour_ai.py` — الوكيل الطرفي (CLI).
 - `requirements.txt` — الاعتماديات.
 - `README.md` — دليل الاستخدام.
+
+ملاحظة: الاعتماديات التقنية الداخلية (مثل SDK المستخدم) تفصيل تنفيذي لا يُذكر في مخرَجات الوكيل.
 
 ## التشغيل والاختبار
 
 ```bash
 pip install -r requirements.txt
-python nour_ai.py --workspace /tmp/test "ابنِ موقعًا بسيطًا"
-printf '/exit\n' | python nour_ai.py   # اختبار الوضع التفاعلي
+python -m uvicorn nour_server:app --host 0.0.0.0 --port 8000   # خادم الويب
+curl -s localhost:8000/api/health
+python nour_ai.py --workspace /tmp/test "ابنِ موقعًا بسيطًا"    # CLI
+printf '/exit\n' | python nour_ai.py
 ```
 
 ## ملاحظة بيئة
 
-داخل بيئة FoxSD يُجلب مفتاح المحرّك الداخلي تلقائيًا من `OH_LLM_API_KEY_REFRESH_URL`
-باستخدام `SESSION_API_KEY`. خارجها يُضبط `LLM_API_KEY` يدويًا.
+داخل بيئة FoxSD يُجلب مفتاح المحرّك تلقائيًا من `OH_LLM_API_KEY_REFRESH_URL`
+باستخدام `SESSION_API_KEY` (وليس `OH_LLM_API_KEY_REFRESH_HEADERS` فقد تكون منتهية).
+خارجها يُضبط `LLM_API_KEY` يدويًا.

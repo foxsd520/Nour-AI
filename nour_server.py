@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import nour_core as core
@@ -22,6 +23,9 @@ app.add_middleware(
 )
 
 WEB_FILE = Path(__file__).with_name("nour_web.html")
+SITE_DIR = Path(__file__).with_name("site")
+if SITE_DIR.is_dir():
+    app.mount("/site", StaticFiles(directory=str(SITE_DIR), html=True), name="site")
 
 
 def sse(obj: dict) -> str:

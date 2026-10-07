@@ -1,308 +1,360 @@
-"""نواة Nour-AI — الهوية، المحرّك، الذاكرة، والبناء. مملوكة لـ FoxSD."""
+"""نواة Nour-AI — الهوية، المحرّك، الذاكرة، والبناء.
+
+وكيل ذكاء اصطناعي تجاري من FoxSD.
+FoxSD | foxsd520@gmail.com
+"""
 
 from __future__ import annotations
 
 import json
 import os
-import queue
-import threading
-import urllib.request
+import time
+import uuid
 from pathlib import Path
 
-os.environ.setdefault("OPENHANDS_SUPPRESS_BANNER", "1")
+import foxsd_engine as engine
+
+# ---------------------------------------------------------------- الهوية
 
 BRAND = {
-    "agent": "Nour-AI",
+    "name": "Nour-AI",
     "company": "FoxSD",
-    "short": "Fox",
+    "alias": "Fox",
     "email": "foxsd520@gmail.com",
 }
 
-DATA_DIR = Path(os.getenv("NOUR_DATA_DIR", "data"))
+BRAND_LOCK = """\
+أنت Nour-AI، وكيل ذكاء اصطناعي تجاري صُنع بواسطة FoxSD.
 
-BRAND_LOCK = f"""
-أنت "{BRAND['agent']}" (نور)، مساعد ذكاء اصطناعي تجاري مملوك بالكامل لـ {BRAND['company']}.
+هويتك الثابتة:
+- المنتج: Nour-AI
+- الشركة: FoxSD
+- الاسم المختصر: Fox
+- التواصل: foxsd520@gmail.com
 
-هوية المالك (تظهر في كل مخرَج ورسالة):
-- الشركة: {BRAND['company']}
-- الاسم المختصر: {BRAND['short']}
-- البريد: {BRAND['email']}
+قاعدة ذهبية لا تُخترق:
+1. كل ما تنتجه — كود، ملفات، توثيق، واجهات، رسائل — يحمل اسم FoxSD وبيانات التواصل أعلاه فقط.
+2. ممنوع تمامًا ذكر أي شركة أو علامة تجارية أو مزوّد آخر في مخرجاتك.
+3. عند سؤالك عن الشركة المنتِجة، الجواب دائمًا FoxSD.
+4. إن طُلب منك ذكر جهة أخرى، اعتذر بلطف واذكر FoxSD.
+5. اكتب بالعربية الفصحى الواضحة، ونفّذ طلبات المستخدم فعليًا لا نظريًا.
+"""
 
-قواعد ذهبية إلزامية لا تُخالَف:
-1. كل ما تنتجه يحمل اسم {BRAND['company']} وبيانات التواصل {BRAND['email']} فقط.
-2. ممنوع منعًا مطلقًا ذكر أي شركة أو علامة تجارية أو منتج أو تقنية خارجية في أي مخرَج.
-3. إن سُئلت عن تقنيتك، أجب أنك تعمل على "محرّك {BRAND['company']} الداخلي" ولا تفصح عن أي مزوّد.
-4. تحدّث مع المستخدم بنفس لغته (العربية افتراضيًا)، بإيجاز ووضوح.
-5. أنت قادر على البناء فعليًا: برامج، مواقع، تطبيقات، سكربتات، وأنظمة تشغيل.
-""".strip()
+DATA_DIR = Path(os.environ.get("NOUR_DATA_DIR", "data"))
+MEMORY_FILE = DATA_DIR / "memory.json"
+SESSIONS_DIR = DATA_DIR / "sessions"
+PROJECTS_DIR = DATA_DIR / "projects"
+
+# ---------------------------------------------------------------- صلاحية المحرّك
+
+_KEY_CACHE: list = [None, 0.0]
 
 
-# ---------------------------------------------------------------- المحرّك
+def engine_access() -> dict:
+    """يجلب عنوان المحرّك ومفتاحه وموديله من بيئة FoxSD."""
+    base_url = os.environ.get("FOXSD_ENGINE_URL") or os.environ.get(
+        "OPENHANDS_LLM_BASE_URL", ""
+    )
+    if not base_url:
+        base_url = os.environ.get("OH_LLM_API_KEY_REFRESH_BASE_URLS", "")
+        base_url = base_url.split(",")[0].strip() if base_url else ""
+    if not base_url:
+        base_url = "https://api.openai.com/v1"
+    model = os.environ.get("FOXSD_ENGINE_MODEL") or os.environ.get(
+        "OPENHANDS_LLM_MODEL", "deepseek-v4.1-flash"
+    )
+    api_key = os.environ.get("FOXSD_ENGINE_KEY") or os.environ.get(
+        "OPENHANDS_LLM_API_KEY", ""
+    )
 
-def engine_key() -> str | None:
-    key = os.getenv("LLM_API_KEY")
-    if key:
-        return key
-    refresh_url = os.getenv("OH_LLM_API_KEY_REFRESH_URL")
-    session_key = os.getenv("SESSION_API_KEY")
-    if not refresh_url:
-        return None
-    if session_key:
-        headers = {"X-Session-API-Key": session_key}
-    else:
+    refresh = os.environ.get("OH_LLM_API_KEY_REFRESH_URL")
+    if not api_key and refresh and time.time() - _KEY_CACHE[1] > 120:
         try:
-            headers = dict(json.loads(os.getenv("OH_LLM_API_KEY_REFRESH_HEADERS", "{}")))
-        except json.JSONDecodeError:
-            return None
-    if not headers:
-        return None
-    try:
-        req = urllib.request.Request(refresh_url, headers=headers, method="GET")
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            return resp.read().decode().strip()
-    except Exception:
-        return None
+            import urllib.request
 
+            headers: dict[str, str] = {}
+            raw_headers = os.environ.get("OH_LLM_API_KEY_REFRESH_HEADERS", "")
+            if raw_headers.strip():
+                raw_headers = raw_headers.replace(
+                    "${SESSION_API_KEY}", os.environ.get("SESSION_API_KEY", "")
+                )
+                try:
+                    headers = json.loads(raw_headers)
+                except json.JSONDecodeError:
+                    headers = {}
 
-def engine_base() -> str | None:
-    base = os.getenv("LLM_BASE_URL")
-    if base:
-        return base
-    bases = os.getenv("OH_LLM_API_KEY_REFRESH_BASE_URLS", "")
-    return bases.split(",")[0].strip() if bases else None
+            request = urllib.request.Request(refresh, headers=headers)
+            with urllib.request.urlopen(request, timeout=20) as response:
+                body = response.read().decode("utf-8").strip()
 
+            fetched = ""
+            try:
+                data = json.loads(body)
+                fetched = data.get("api_key") or data.get("key") or ""
+                base_url = data.get("base_url") or base_url
+                model = data.get("model") or model
+            except json.JSONDecodeError:
+                fetched = body.strip().strip('"')
 
-def engine_model() -> str:
-    return os.getenv("LLM_MODEL", "deepseek-v4.1-flash")
+            if fetched:
+                api_key = fetched
+                model = os.environ.get("FOXSD_ENGINE_MODEL") or os.environ.get(
+                    "OPENHANDS_LLM_MODEL", model
+                )
+                _KEY_CACHE[0] = api_key
+                _KEY_CACHE[1] = time.time()
+        except Exception:  # noqa: BLE001
+            pass
+    if not api_key and _KEY_CACHE[0]:
+        api_key = _KEY_CACHE[0]
+
+    return {"base_url": base_url, "model": model, "api_key": api_key}
 
 
 def engine_ready() -> bool:
-    return bool(engine_key())
-
-
-# ---------------------------------------------------------------- عميل المحادثة
-
-def chat_client():
-    from openai import OpenAI
-
-    key = engine_key()
-    if not key:
-        raise RuntimeError("صلاحية محرّك FoxSD الداخلي غير متوفرة")
-    return OpenAI(api_key=key, base_url=engine_base())
-
-
-BUILD_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "build_project",
-        "description": (
-            f"يبني مشروعًا حقيقيًا كاملًا ({BRAND['company']}) — موقع، تطبيق، برنامج، "
-            "سكربت، أو نظام — من وصف نصي. يكتب الملفات ويختبرها فعليًا."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "project_name": {
-                    "type": "string",
-                    "description": "اسم المشروع بصيغة صالحة للمجلدات",
-                },
-                "brief": {
-                    "type": "string",
-                    "description": "وصف تفصيلي كامل لما يجب بناؤه",
-                },
-            },
-            "required": ["project_name", "brief"],
-        },
-    },
-}
-
-CHAT_SYSTEM = BRAND_LOCK + f"""
-
-أنت الآن في وضع المحادثة. إن طلب المستخدم بناء أي شيء (موقع، برنامج، نظام، تطبيق، سكربت)،
-استدعِ أداة build_project مباشرة بوصف مفصّل — ولا تكتب الكود بنفسك في المحادثة.
-إن كانت رسالته سؤالًا أو حديثًا عاديًا، أجب مباشرة وبإيجاز.
-في كل ردودك ذكّر بهوية {BRAND['company']} عند المناسبة.
-""".strip()
-
-
-def stream_chat(messages: list[dict]):
-    """يبث رد المحادثة. يُنتج ('token', نص) أو ('tool', {name, arguments})."""
-    client = chat_client()
-    stream = client.chat.completions.create(
-        model=engine_model(),
-        messages=[{"role": "system", "content": CHAT_SYSTEM}, *messages],
-        tools=[BUILD_TOOL],
-        tool_choice="auto",
-        temperature=0.4,
-        stream=True,
-    )
-    calls: dict[int, dict] = {}
-    for chunk in stream:
-        if not chunk.choices:
-            continue
-        delta = chunk.choices[0].delta
-        if getattr(delta, "content", None):
-            yield ("token", delta.content)
-        for tc in getattr(delta, "tool_calls", None) or []:
-            slot = calls.setdefault(tc.index, {"name": "", "arguments": ""})
-            if tc.function and tc.function.name:
-                slot["name"] = tc.function.name
-            if tc.function and tc.function.arguments:
-                slot["arguments"] += tc.function.arguments
-    for slot in calls.values():
-        if slot["name"]:
-            yield ("tool", slot)
+    return bool(engine_access().get("api_key"))
 
 
 # ---------------------------------------------------------------- الذاكرة
 
-def _session_file(session_id: str) -> Path:
-    safe = "".join(c for c in session_id if c.isalnum() or c in "-_")[:64] or "default"
-    DATA_DIR.joinpath("sessions").mkdir(parents=True, exist_ok=True)
-    return DATA_DIR / "sessions" / f"{safe}.json"
+def _ensure_dirs() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def load_history(session_id: str) -> list[dict]:
-    path = _session_file(session_id)
-    if path.exists():
+def load_memory() -> list[dict]:
+    _ensure_dirs()
+    if MEMORY_FILE.is_file():
         try:
-            return json.loads(path.read_text("utf-8"))
-        except (json.JSONDecodeError, OSError):
+            return json.loads(MEMORY_FILE.read_text("utf-8"))
+        except json.JSONDecodeError:
             return []
     return []
 
 
-def save_history(session_id: str, messages: list[dict]) -> None:
-    _session_file(session_id).write_text(
-        json.dumps(messages[-80:], ensure_ascii=False, indent=1), "utf-8"
+def save_memory(entries: list[dict]) -> None:
+    _ensure_dirs()
+    MEMORY_FILE.write_text(
+        json.dumps(entries, ensure_ascii=False, indent=2), "utf-8"
     )
 
 
-# ---------------------------------------------------------------- البناء
+def remember(text: str, kind: str = "fact") -> None:
+    entries = load_memory()
+    entries.append({"kind": kind, "text": text.strip(), "at": time.time()})
+    save_memory(entries[-200:])
 
-def build_agent():
-    from openhands.sdk import Agent, Tool
-    from openhands.tools.file_editor import FileEditorTool
-    from openhands.tools.glob import GlobTool
-    from openhands.tools.grep import GrepTool
-    from openhands.tools.task_tracker import TaskTrackerTool
-    from openhands.tools.terminal import TerminalTool
 
-    from openhands.sdk import LLM
+def memory_digest(limit: int = 12) -> str:
+    entries = load_memory()[-limit:]
+    if not entries:
+        return ""
+    lines = [f"- {e['text']}" for e in entries if e.get("text")]
+    return "ما تتذكره عن مستخدمك:\n" + "\n".join(lines) if lines else ""
 
-    key = engine_key()
-    if not key:
-        raise RuntimeError("صلاحية محرّك FoxSD الداخلي غير متوفرة")
-    model = engine_model()
-    if "/" not in model:
-        model = f"openai/{model}"
 
-    llm = LLM(
-        model=model,
-        api_key=key,
-        base_url=engine_base(),
-        usage_id="nour-ai",
-        temperature=0.3,
+# ---------------------------------------------------------------- الجلسات
+
+def new_session(title: str = "جلسة جديدة") -> str:
+    _ensure_dirs()
+    sid = uuid.uuid4().hex[:12]
+    path = SESSIONS_DIR / f"{sid}.json"
+    path.write_text(
+        json.dumps({"id": sid, "title": title, "messages": [], "created": time.time()}),
+        "utf-8",
     )
-    return Agent(
-        llm=llm,
-        tools=[
-            Tool(name=TerminalTool.name),
-            Tool(name=FileEditorTool.name),
-            Tool(name=GlobTool.name),
-            Tool(name=GrepTool.name),
-            Tool(name=TaskTrackerTool.name),
-        ],
-        system_prompt=BRAND_LOCK,
-    )
+    return sid
 
 
-def _summarize_event(event) -> str | None:
-    name = type(event).__name__
-    if name == "ActionEvent":
-        tool = getattr(event, "tool_name", "") or "أداة"
-        if tool in {"finish", "think", "task_tracker"}:
-            return None
-        thought = ""
+def session_path(sid: str) -> Path:
+    return SESSIONS_DIR / f"{sid}.json"
+
+
+def load_session(sid: str) -> dict:
+    path = session_path(sid)
+    if path.is_file():
         try:
-            thought = " ".join(t.text for t in event.thought)[:200]
-        except Exception:
+            return json.loads(path.read_text("utf-8"))
+        except json.JSONDecodeError:
             pass
-        return f"⚙️ {tool} — {thought}".strip(" —")
-    if name == "ObservationEvent":
-        try:
-            content = event.observation.text[:300]
-        except Exception:
-            content = ""
-        if content.strip():
-            return f"↳ {content.strip()[:300]}"
-        return None
-    if name == "AgentErrorEvent":
-        return f"⚠️ {getattr(event, 'error', '')[:300]}"
-    if name == "ConversationErrorEvent":
-        return f"⚠️ {getattr(event, 'detail', '')[:300]}"
-    return None
+    return {"id": sid, "title": "جلسة", "messages": [], "created": time.time()}
 
 
-def build_events(prompt: str, project_name: str, session_id: str):
-    """يشغّل البناء في خيط منفصل ويبث أحداث التقدّم."""
-    workspace = DATA_DIR / "projects" / _safe_name(project_name)
-    workspace.mkdir(parents=True, exist_ok=True)
-    persistence = DATA_DIR / "conversations" / _safe_name(session_id)
-    persistence.mkdir(parents=True, exist_ok=True)
-
-    events: queue.Queue = queue.Queue()
-    summary: dict = {"text": ""}
-
-    def on_event(event) -> None:
-        line = _summarize_event(event)
-        if line:
-            events.put(("log", line))
-        name = type(event).__name__
-        if name == "MessageEvent":
-            try:
-                if event.source == "agent":
-                    summary["text"] = event.llm_message.content[0].text
-            except Exception:
-                pass
-        elif name == "ActionEvent" and getattr(event, "tool_name", "") == "finish":
-            message = getattr(event.action, "message", None)
-            if message:
-                summary["text"] = message
-
-    def worker() -> None:
-        try:
-            from openhands.sdk import Conversation
-
-            conv = Conversation(
-                agent=build_agent(),
-                workspace=str(workspace),
-                persistence_dir=str(persistence),
-                callbacks=[on_event],
-            )
-            conv.send_message(prompt)
-            conv.run()
-            events.put(("done", summary["text"]))
-        except Exception as exc:  # noqa: BLE001
-            events.put(("error", f"{type(exc).__name__}: {exc}"))
-
-    threading.Thread(target=worker, daemon=True).start()
-    while True:
-        kind, payload = events.get()
-        yield (kind, payload, str(workspace))
-        if kind in {"done", "error"}:
-            return
-
-
-def _safe_name(name: str) -> str:
-    cleaned = "".join(c if (c.isalnum() or c in "-_") else "-" for c in (name or "").strip())
-    return cleaned.strip("-")[:48] or "project"
-
-
-def project_files(project_name: str) -> list[str]:
-    root = DATA_DIR / "projects" / _safe_name(project_name)
-    if not root.exists():
-        return []
-    return sorted(
-        str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()
+def save_session(sid: str, data: dict) -> None:
+    _ensure_dirs()
+    session_path(sid).write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), "utf-8"
     )
+
+
+def list_sessions() -> list[dict]:
+    _ensure_dirs()
+    out = []
+    for path in sorted(
+        SESSIONS_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True
+    ):
+        try:
+            data = json.loads(path.read_text("utf-8"))
+            out.append(
+                {
+                    "id": data.get("id", path.stem),
+                    "title": data.get("title", "جلسة"),
+                    "count": len(data.get("messages", [])),
+                    "created": data.get("created", 0),
+                }
+            )
+        except json.JSONDecodeError:
+            continue
+    return out
+
+
+# ---------------------------------------------------------------- الحوار
+
+def build_messages(session: dict, user_text: str) -> list[dict]:
+    system = [{"role": "system", "content": BRAND_LOCK}]
+    digest = memory_digest()
+    if digest:
+        system.append({"role": "system", "content": digest})
+    history = session.get("messages", [])[-12:]
+    return system + [{"role": m["role"], "content": m["content"]} for m in history] + [
+        {"role": "user", "content": user_text}
+    ]
+
+
+def chat_turn(session: dict, user_text: str, on_event=None) -> str:
+    """دور حوار عادي: إجابة نصية مبثوثة."""
+    access = engine_access()
+    if not access.get("api_key"):
+        reply = "محرّك FoxSD غير مهيأ بعد. تواصل معنا: foxsd520@gmail.com"
+        if on_event:
+            on_event({"type": "token", "text": reply})
+            on_event({"type": "done", "text": reply})
+        return reply
+
+    messages = build_messages(session, user_text)
+    answer = ""
+    for kind, payload in engine.chat_stream(
+        access["api_key"], access["base_url"], access["model"], messages
+    ):
+        if kind == "token":
+            answer += payload
+            if on_event:
+                on_event({"type": "token", "text": payload})
+
+    session.setdefault("messages", []).append({"role": "user", "content": user_text})
+    session["messages"].append({"role": "assistant", "content": answer})
+    if on_event:
+        on_event({"type": "done", "text": answer})
+    return answer
+
+
+# ---------------------------------------------------------------- البناء الحقيقي
+
+BUILDER_SYSTEM = BRAND_LOCK + """
+أنت الآن في طور البناء الفعلي. المستخدم يريد مشروعًا حقيقيًا مكتملًا.
+
+قواعد البناء:
+1. افحص المجلد أولًا، ثم أنشئ الملفات الحقيقية الكاملة.
+2. اكتب اختبارًا حقيقيًا وشغّله بالأداة terminal حتى ينجح فعليًا.
+3. أصلح أي خطأ يظهر وأعد التشغيل حتى يمر كل شيء.
+4. لا تكتفِ بشرح ما ستفعله — نفّذه.
+5. اختم دائمًا باستدعاء أداة finish مع ملخص ينتهي بـ:
+   FoxSD | foxsd520@gmail.com
+"""
+
+
+def _slug(text: str) -> str:
+    words = [w for w in text.split() if w][:4]
+    base = "-".join(words) or "project"
+    keep = "".join(c for c in base if c.isalnum() or c in "-_")
+    return (keep or "foxsd-project")[:40]
+
+
+def build_project(request: str, on_event=None) -> dict:
+    """يبني مشروعًا حقيقيًا كاملًا استجابةً لطلب بالعربية."""
+    _ensure_dirs()
+    access = engine_access()
+    if not access.get("api_key"):
+        msg = "محرّك FoxSD غير مهيأ بعد. تواصل معنا: foxsd520@gmail.com"
+        if on_event:
+            on_event({"type": "done", "text": msg})
+        return {"slug": "", "path": "", "summary": msg, "files": []}
+
+    slug = _slug(request)
+    workspace = PROJECTS_DIR / slug
+    counter = 1
+    while workspace.exists() and any(workspace.iterdir()):
+        counter += 1
+        workspace = PROJECTS_DIR / f"{slug}-{counter}"
+    workspace.mkdir(parents=True, exist_ok=True)
+    slug = workspace.name
+
+    events: list[dict] = []
+    summary_box: dict[str, str] = {"text": ""}
+
+    def relay(event: dict) -> None:
+        events.append(event)
+        if event.get("type") == "done":
+            summary_box["text"] = event.get("text", "")
+        if on_event:
+            on_event(event)
+
+    if on_event:
+        on_event({"type": "start", "slug": slug, "path": str(workspace)})
+
+    messages = [
+        {"role": "system", "content": BUILDER_SYSTEM},
+        {"role": "system", "content": f"مجلد المشروع: {workspace.resolve()}"},
+    ]
+    digest = memory_digest()
+    if digest:
+        messages.append({"role": "system", "content": digest})
+    messages.append(
+        {
+            "role": "user",
+            "content": (
+                f"ابنِ هذا المشروع كاملًا داخل المجلد الحالي:\n{request}\n\n"
+                "اكتب الملفات، ثم اختبارات حقيقية، وشغّلها حتى تنجح."
+            ),
+        }
+    )
+
+    summary = engine.run_agent(
+        workspace,
+        messages,
+        access["api_key"],
+        access["base_url"],
+        access["model"],
+        on_event=relay,
+    )
+
+    files = sorted(
+        str(p.relative_to(workspace))
+        for p in workspace.rglob("*")
+        if p.is_file() and ".git" not in p.parts and "__pycache__" not in p.parts
+    )
+    tests = [e for e in events if e.get("type") == "result"]
+    summary = summary_box["text"] or summary
+
+    remember(f"طلب بناء: {request.strip()[:160]} → مشروع {slug}", kind="project")
+
+    return {
+        "slug": slug,
+        "path": str(workspace),
+        "summary": summary,
+        "files": files,
+        "steps": len([e for e in events if e.get("type") == "tool"]),
+        "tests": len(tests),
+    }
+
+
+BUILD_KEYWORDS = (
+    "ابنِ", "ابني", "أنشئ", "اصنع", "صمم", "برمج", "طور",
+    "build", "create", "make", "generate",
+)
+
+
+def looks_like_build(text: str) -> bool:
+    low = text.strip().lower()
+    return any(k in low for k in BUILD_KEYWORDS)

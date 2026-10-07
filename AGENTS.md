@@ -1,42 +1,48 @@
 # AGENTS.md — FoxSD
 
-## المشروع
+## ما هو هذا المشروع
 
-`nour_ai.py` هو **Nour-AI**، وكيل بناء ذكي مملوك لـ **FoxSD**.
+**Nour-AI** وكيل ذكاء اصطناعي تجاري مملوك لـ **FoxSD**.
 
 - الشركة: FoxSD
 - الاسم المختصر: Fox
 - التواصل: foxsd520@gmail.com
 
-## قواعد إلزامية لكل تعديل
+## القاعدة الذهبية
 
-1. أي مخرَج (كود، ملف، توثيق، واجهة) يحمل اسم FoxSD وبيانات التواصل فقط.
-2. ممنوع ذكر أي شركة أو علامة تجارية خارجية في أي مخرَج أو رسالة.
-3. اكتب التوثيق والتعليقات بالعربية.
+1. كل مخرَج (كود، ملف، توثيق، واجهة) يحمل اسم FoxSD وبيانات التواصل فقط.
+2. ممنوع ذكر أي شركة أو علامة تجارية أو مزوّد خارجي في أي مخرَج.
 
-## البنية
+## المكوّنات
 
-- `nour_core.py` — النواة: الهوية (BRAND_LOCK)، جلب صلاحية المحرّك، الذاكرة، البناء.
+- `foxsd_engine.py` — محرّك FoxSD الداخلي: عميل المحادثة، الأدوات، حلقة الوكيل.
+- `nour_core.py` — النواة: الهوية (BRAND_LOCK)، صلاحية المحرّك، الذاكرة، البناء.
 - `nour_server.py` — خادم FastAPI + بث SSE.
 - `nour_web.html` — واجهة المحادثة العربية.
 - `nour_ai.py` — الوكيل الطرفي (CLI).
-- `requirements.txt` — الاعتماديات.
-- `README.md` — دليل الاستخدام.
 
-ملاحظة: الاعتماديات التقنية الداخلية (مثل SDK المستخدم) تفصيل تنفيذي لا يُذكر في مخرَجات الوكيل.
+## البيئة
 
-## التشغيل والاختبار
+يُقرأ إعداد المحرّك من متغيّرات البيئة:
+
+- `FOXSD_ENGINE_URL` / `OPENHANDS_LLM_BASE_URL` — عنوان المحرّك
+- `FOXSD_ENGINE_MODEL` / `OPENHANDS_LLM_MODEL` — الموديل
+- `FOXSD_ENGINE_KEY` / `OPENHANDS_LLM_API_KEY` — المفتاح
+- `OH_LLM_API_KEY_REFRESH_URL` — مصدر تجديد المفتاح
+
+## الأوامر
 
 ```bash
-pip install -r requirements.txt
 python -m uvicorn nour_server:app --host 0.0.0.0 --port 8000   # خادم الويب
-curl -s localhost:8000/api/health
-python nour_ai.py --workspace /tmp/test "ابنِ موقعًا بسيطًا"    # CLI
-printf '/exit\n' | python nour_ai.py
+python nour_ai.py "ابنِ موقعًا بسيطًا"                          # طلب واحد
+printf '/exit\n' | python nour_ai.py                            # وضع تفاعلي
 ```
 
-## ملاحظة بيئة
+## ملاحظات للعمل المستقبلي
 
-داخل بيئة FoxSD يُجلب مفتاح المحرّك تلقائيًا من `OH_LLM_API_KEY_REFRESH_URL`
-باستخدام `SESSION_API_KEY` (وليس `OH_LLM_API_KEY_REFRESH_HEADERS` فقد تكون منتهية).
-خارجها يُضبط `LLM_API_KEY` يدويًا.
+- أي وظيفة جديدة تُضاف إلى `foxsd_engine.py` أو `nour_core.py`، لا إلى الواجهات مباشرة.
+- اختبر ببناء مشروع حقيقي: `python nour_ai.py "ابنِ آلة حاسبة"`.
+
+---
+
+**FoxSD** | foxsd520@gmail.com

@@ -1,83 +1,87 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """Nour-AI — الوكيل الطرفي (CLI). FoxSD | foxsd520@gmail.com"""
 
 from __future__ import annotations
 
 import argparse
-import os
+import sys
 
-from nour_core import BRAND, build_agent
-
-BANNER = f"""
-{"=" * 58}
-  {BRAND['agent']}  —  وكيل البناء الذكي
-  الشركة : {BRAND['company']}  ({BRAND['short']})
-  التواصل: {BRAND['email']}
-{"=" * 58}
-  اكتب طلبك بالعربية وسأبنيه لك (برنامج / موقع / نظام).
-  أوامر: /exit للخروج  |  /new لبدء محادثة جديدة
-{"=" * 58}
-"""
+import nour_core
 
 
-def _conversation(workspace: str):
-    from openhands.sdk import Conversation
-
-    os.makedirs(workspace, exist_ok=True)
-    return Conversation(agent=build_agent(), workspace=os.path.abspath(workspace))
-
-
-def run_once(prompt: str, workspace: str) -> None:
-    conv = _conversation(workspace)
-    conv.send_message(prompt)
-    conv.run()
-
-
-def run_interactive(workspace: str) -> None:
-    print(BANNER)
-    conv = _conversation(workspace)
-    while True:
-        try:
-            user_input = input(f"\n[{BRAND['short']}] اكتب طلبك > ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print(f"\nوداعًا — {BRAND['company']}")
-            return
-
-        if not user_input:
-            continue
-        if user_input in {"/exit", "/quit"}:
-            print(f"وداعًا — {BRAND['company']}")
-            return
-        if user_input == "/new":
-            conv = _conversation(workspace)
-            print("بدأنا محادثة جديدة.")
-            continue
-
-        try:
-            conv.send_message(user_input)
-            conv.run()
-        except Exception as exc:  # noqa: BLE001
-            print(f"\nحدث خطأ أثناء التنفيذ: {exc}")
+def _on_event(event: dict) -> None:
+    kind = event.get("type")
+    if kind == "token":
+        sys.stdout.write(event.get("text", ""))
+        sys.stdout.flush()
+    elif kind == "tool":
+        print(f"\n⚙ {event.get('name')}: {event.get('brief', '')}")
+    elif kind == "result":
+        text = event.get("text", "")
+        preview = text if len(text) < 400 else text[:400] + "…"
+        print(f"↳ {preview}")
+    elif kind == "start":
+        print(f"📁 {event.get('path')}")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        prog="nour_ai",
-        description=f"{BRAND['agent']} — وكيل ذكاء اصطناعي تجاري من {BRAND['company']}",
-    )
-    parser.add_argument("prompt", nargs="*", help="طلب واحد لتنفيذه ثم الخروج")
-    parser.add_argument(
-        "--workspace",
-        default=os.getcwd(),
-        help="المجلد الذي يُبنى فيه المشروع (افتراضيًا المجلد الحالي)",
-    )
+def banner() -> None:
+    print("=" * 52)
+    print(f"  {nour_core.BRAND['name']} — وكيل ذكاء اصطناعي تجاري")
+    print(f"  {nour_core.BRAND['company']} | {nour_core.BRAND['email']}")
+    print("=" * 52)
+    print(" اكتب طلبك بالعربية. للخروج: /exit")
+    print()
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Nour-AI CLI — FoxSD")
+    parser.add_argument("request", nargs="*", help="طلب واحد ثم خروج")
+    parser.add_argument("--build", action="store_true", help="إجبار طور البناء")
+    parser.add_argument("--workspace", default="", help="مجلد البناء")
     args = parser.parse_args()
 
-    if args.prompt:
-        run_once(" ".join(args.prompt), args.workspace)
-    else:
-        run_interactive(args.workspace)
+    if not nour_core.engine_ready():
+        print("محرّك FoxSD غير مهيأ. تواصل معنا: foxsd520@gmail.com")
+        return 1
+
+    if args.workspace:
+        import os
+
+        os.environ["NOUR_DATA_DIR"] = args.workspace
+
+    if args.request:
+        text = " ".join(args.request)
+        if args.build or nour_core.looks_like_build(text):
+            result = nour_core.build_project(text, on_event=_on_event)
+            print(f"\n\n✅ {result['slug']}: {len(result['files'])} ملف")
+        else:
+            session = {"id": nour_core.new_session(), "messages": []}
+            nour_core.chat_turn(session, text, on_event=_on_event)
+            nour_core.save_session(session["id"], session)
+        print()
+        return 0
+
+    banner()
+    session = nour_core.load_session(nour_core.new_session())
+    while True:
+        try:
+            text = input("أنت › ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if not text:
+            continue
+        if text in {"/exit", "/quit"}:
+            break
+        print("Nour-AI › ", end="", flush=True)
+        if nour_core.looks_like_build(text):
+            nour_core.build_project(text, on_event=_on_event)
+        else:
+            nour_core.chat_turn(session, text, on_event=_on_event)
+        nour_core.save_session(session["id"], session)
+        print("\n")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

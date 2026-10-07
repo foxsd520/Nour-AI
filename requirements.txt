@@ -1,5 +1,4 @@
-openhands-sdk>=1.53.0
-openhands-tools>=1.53.0
-openai>=1.0.0
+# Nour-AI — FoxSD | foxsd520@gmail.com
+# محرّك FoxSD الداخلي يعتمد على المكتبة القياسية فقط (بلا مزوّد خارجي).
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0

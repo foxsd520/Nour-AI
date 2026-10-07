@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="author" content="FoxSD" />
+<meta name="description" content="Nour-AI — وكيل ذكاء اصطناعي تجاري من FoxSD | foxsd520@gmail.com" />
+<title>Nour-AI — وكيل ذكاء اصطناعي تجاري | FoxSD</title>
+<style>
+  :root{
+    --bg:#060910; --panel:#0e1420; --panel2:#131b2a; --line:rgba(255,255,255,.09);
+    --txt:#e9eff8; --mut:#8ea0b8; --acc:#22d3a6; --acc2:#3b82f6; --me:#1c2536;
+    --err:#f87171;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:"Segoe UI",Tahoma,system-ui,sans-serif;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,rgba(34,211,166,.07),transparent)}
+  .logo{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-weight:800;
+    background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04121a;font-size:19px}
+  .titles h1{margin:0;font-size:19px;letter-spacing:.2px}
+  .titles p{margin:2px 0 0;font-size:12.5px;color:var(--mut)}
+  .status{margin-inline-start:auto;font-size:12.5px;display:flex;align-items:center;gap:7px;color:var(--mut)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--mut)}
+  .dot.on{background:var(--acc);box-shadow:0 0 10px var(--acc)}
+  .dot.off{background:var(--err);box-shadow:0 0 10px var(--err)}
+  .gear{background:none;border:1px solid var(--line);color:var(--mut);border-radius:9px;
+    width:34px;height:34px;cursor:pointer;font-size:15px}
+  .gear:hover{border-color:var(--acc);color:var(--acc)}
+  main{flex:1;overflow-y:auto;padding:26px 18px 10px}
+  .thread{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+  .msg{max-width:88%;padding:14px 17px;border-radius:16px;line-height:1.85;font-size:15.3px;
+    white-space:pre-wrap;word-wrap:break-word;border:1px solid var(--line)}
+  .msg.user{align-self:flex-start;background:var(--me);border-start-start-radius:5px}
+  .msg.bot{align-self:flex-end;background:var(--panel);border-start-end-radius:5px}
+  .msg b{color:var(--acc)}
+  .msg.err{align-self:flex-end;background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.3)}
+  .who{font-size:11.5px;color:var(--mut);margin-bottom:6px;display:block}
+  .log{align-self:flex-end;max-width:88%;font-family:ui-monospace,Consolas,monospace;font-size:12.6px;
+    color:#9fe8d3;background:rgba(34,211,166,.06);border:1px solid rgba(34,211,166,.22);
+    border-radius:10px;padding:9px 13px;white-space:pre-wrap;direction:ltr;text-align:left;max-height:260px;overflow:auto}
+  .files{align-self:flex-end;max-width:88%;background:var(--panel2);border:1px solid var(--line);
+    border-radius:14px;padding:14px 16px}
+  .files h4{margin:0 0 10px;font-size:13.5px;color:var(--acc)}
+  .files button{display:block;width:100%;text-align:start;background:none;border:none;color:var(--txt);
+    font:inherit;font-size:13px;padding:6px 4px;cursor:pointer;border-radius:8px}
+  .files button:hover{background:rgba(255,255,255,.05);color:var(--acc)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;max-width:820px;margin:0 auto}
+  .chip{border:1px solid var(--line);background:var(--panel);color:var(--mut);border-radius:999px;
+    padding:8px 15px;font:inherit;font-size:13px;cursor:pointer;transition:.2s}
+  .chip:hover{border-color:var(--acc);color:var(--acc)}
+  footer{border-top:1px solid var(--line);padding:14px 18px 18px;background:var(--bg)}
+  form{max-width:820px;margin:0 auto;display:flex;gap:10px;align-items:flex-end}
+  textarea{flex:1;resize:none;background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    color:var(--txt);font:inherit;font-size:15px;padding:14px 16px;max-height:150px;min-height:52px;outline:none}
+  textarea:focus{border-color:var(--acc)}
+  button.send{background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;color:#04121a;
+    font-weight:700;font-size:15px;padding:0 22px;height:52px;border-radius:14px;cursor:pointer}
+  button.send:disabled{opacity:.45;cursor:not-allowed}
+  .credit{max-width:820px;margin:10px auto 0;font-size:11.5px;color:var(--mut);text-align:center}
+  .cursor{display:inline-block;width:8px;height:16px;background:var(--acc);vertical-align:-3px;
+    animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;place-items:center;z-index:20;padding:18px}
+  .modal.show{display:grid}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;
+    max-width:520px;width:100%}
+  .card h3{margin:0 0 6px;font-size:17px}
+  .card p{margin:0 0 14px;font-size:13px;color:var(--mut);line-height:1.7}
+  .card label{display:block;font-size:12.5px;color:var(--mut);margin:12px 0 6px}
+  .card input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    color:var(--txt);font:inherit;font-size:14px;padding:11px 13px;outline:none;direction:ltr;text-align:left}
+  .card input:focus{border-color:var(--acc)}
+  .card .row{display:flex;gap:10px;margin-top:18px}
+  .card button{flex:1;border-radius:11px;font:inherit;font-weight:700;font-size:14px;padding:12px;cursor:pointer;border:none}
+  .card .save{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04121a}
+  .card .close{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">N</div>
+  <div class="titles">
+    <h1>Nour-AI</h1>
+    <p>وكيل ذكاء اصطناعي تجاري — FoxSD</p>
+  </div>
+  <div class="status"><span class="dot" id="dot"></span><span id="status">جارٍ الفحص…</span></div>
+  <button class="gear" id="gear" title="إعداد الخادم">⚙</button>
+</header>
+
+<main id="main">
+  <div class="thread" id="thread"></div>
+  <div style="max-width:820px;margin:20px auto 0" id="chips" class="chips"></div>
+</main>
+
+<footer>
+  <form id="form">
+    <textarea id="input" rows="1" placeholder="اكتب طلبك… مثال: ابنِ لي موقعًا لمتجر إلكتروني"></textarea>
+    <button class="send" id="send" type="submit">إرسال</button>
+  </form>
+  <div class="credit">© FoxSD — foxsd520@gmail.com</div>
+</footer>
+
+<div class="modal" id="modal">
+  <div class="card">
+    <h3>إعداد خادم FoxSD</h3>
+    <p>الوكيل يحتاج خادمًا يشغّل المحرّك. الصفحة هنا واجهة فقط — أدخل عنوان خادمك ليعمل الذكاء الاصطناعي فعليًا.</p>
+    <label>عنوان الخادم (بلا شرطة أخيرة)</label>
+    <input id="backendInput" placeholder="https://your-server.example.com" />
+    <div class="row">
+      <button class="close" id="closeModal" type="button">إغلاق</button>
+      <button class="save" id="saveModal" type="button">حفظ وفحص</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const thread = document.getElementById('thread');
+const input  = document.getElementById('input');
+const form   = document.getElementById('form');
+const send   = document.getElementById('send');
+const statusEl = document.getElementById('status');
+const dotEl  = document.getElementById('dot');
+const main   = document.getElementById('main');
+const chips  = document.getElementById('chips');
+const modal  = document.getElementById('modal');
+const backendInput = document.getElementById('backendInput');
+
+const DEFAULT_BACKEND = 'https://work-1-zsntumxzwnyygmpt.prod-runtime.all-hands.dev';
+const KEY_BACKEND = 'nour_backend';
+
+function backend() {
+  return (localStorage.getItem(KEY_BACKEND) || DEFAULT_BACKEND).replace(/\/+$/, '');
+}
+
+const SESSION = (() => {
+  let s = localStorage.getItem('nour_session');
+  if (!s) { s = 'fox-' + Math.random().toString(36).slice(2, 10); localStorage.setItem('nour_session', s); }
+  return s;
+})();
+
+const SUGGESTIONS = [
+  'من أنت؟',
+  'ابنِ لي موقعًا تعريفيًا لشركة FoxSD',
+  'ابنِ لي نظام إدارة مهام بالعربية',
+  'ابنِ لي آلة حاسبة كتطبيق ويب',
+];
+
+function setStatus(state, text) {
+  dotEl.className = 'dot ' + (state || '');
+  statusEl.textContent = text;
+}
+
+function scroll() { main.scrollTop = main.scrollHeight; }
+
+function bubble(kind, html) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + kind;
+  d.innerHTML = html;
+  thread.appendChild(d);
+  scroll();
+  return d;
+}
+
+function logLine(text) {
+  const d = document.createElement('div');
+  d.className = 'log';
+  d.textContent = text;
+  thread.appendChild(d);
+  scroll();
+  return d;
+}
+
+function filesCard(project, files) {
+  const d = document.createElement('div');
+  d.className = 'files';
+  const h = document.createElement('h4');
+  h.textContent = '📦 ملفات مشروع «' + project + '» (' + files.length + ')';
+  d.appendChild(h);
+  files.forEach(f => {
+    const b = document.createElement('button');
+    b.textContent = '› ' + f;
+    b.onclick = () => openFile(project, f);
+    d.appendChild(b);
+  });
+  thread.appendChild(d);
+  scroll();
+}
+
+async function openFile(project, path) {
+  try {
+    const r = await fetch(backend() + '/api/projects/' + encodeURIComponent(project) + '/file?path=' + encodeURIComponent(path));
+    const j = await r.json();
+    logLine('— ' + path + ' —\n' + (j.content || j.detail || ''));
+  } catch (e) {
+    logLine('⚠️ تعذّر فتح الملف: ' + e.message);
+  }
+}
+
+function renderSuggestions() {
+  chips.innerHTML = '';
+  SUGGESTIONS.forEach(s => {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.textContent = s;
+    b.onclick = () => { input.value = s; chips.innerHTML = ''; form.requestSubmit(); };
+    chips.appendChild(b);
+  });
+}
+
+async function checkHealth() {
+  setStatus('', 'جارٍ الفحص…');
+  try {
+    const r = await fetch(backend() + '/api/health', {cache: 'no-store'});
+    const j = await r.json();
+    if (j.engine_ready) setStatus('on', 'متصل — ' + j.company);
+    else setStatus('off', 'الخادم متصل بلا محرّك');
+    return j;
+  } catch {
+    setStatus('off', 'الخادم غير متاح');
+    return null;
+  }
+}
+
+async function sendMessage(text) {
+  chips.innerHTML = '';
+  bubble('user', '<span class="who">أنت</span>' + text.replace(/</g, '&lt;'));
+  input.value = ''; input.style.height = 'auto';
+  send.disabled = true; setStatus('', 'يفكّر…');
+
+  const bot = bubble('bot', '<span class="who">Nour-AI</span><span class="cursor"></span>');
+  let acc = '';
+
+  try {
+    const res = await fetch(backend() + '/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({session_id: SESSION, message: text}),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream: true});
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const p of parts) {
+        const line = p.replace(/^data: /, '').trim();
+        if (!line) continue;
+        let ev; try { ev = JSON.parse(line); } catch { continue; }
+        if (ev.type === 'token') {
+          acc += ev.text;
+          bot.innerHTML = '<span class="who">Nour-AI</span>' + acc.replace(/</g, '&lt;');
+          scroll();
+        } else if (ev.type === 'build_start') {
+          bot.innerHTML = '<span class="who">Nour-AI</span>' + (acc || 'سأبني ذلك الآن…');
+          logLine('▶ بدء البناء — FoxSD');
+          setStatus('', 'يبني…');
+        } else if (ev.type === 'log') {
+          logLine(ev.text);
+        } else if (ev.type === 'done') {
+          if (ev.text) {
+            bot.innerHTML = '<span class="who">Nour-AI</span>' + ev.text.replace(/</g, '&lt;');
+          } else if (!acc) {
+            bot.innerHTML = '<span class="who">Nour-AI</span>تم ✅';
+          }
+          if (ev.project && ev.files) filesCard(ev.project, ev.files);
+        } else if (ev.type === 'error') {
+          bot.className = 'msg bot err';
+          bot.innerHTML = '<span class="who">Nour-AI</span>⚠️ ' + String(ev.text).replace(/</g, '&lt;');
+        }
+        scroll();
+      }
+    }
+  } catch (e) {
+    bot.className = 'msg bot err';
+    bot.innerHTML = '<span class="who">Nour-AI</span>⚠️ تعذّر الوصول لخادم FoxSD (' +
+      e.message + ').<br>اضبط عنوان الخادم من زر ⚙ ثم أعد المحاولة.';
+  }
+
+  send.disabled = false;
+  const h = await checkHealth();
+  if (h && h.engine_ready) setStatus('on', 'متصل — ' + h.company);
+}
+
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  const t = input.value.trim();
+  if (t) sendMessage(t);
+});
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+});
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+});
+
+document.getElementById('gear').onclick = () => {
+  backendInput.value = backend();
+  modal.classList.add('show');
+  backendInput.focus();
+};
+document.getElementById('closeModal').onclick = () => modal.classList.remove('show');
+document.getElementById('saveModal').onclick = async () => {
+  const v = backendInput.value.trim().replace(/\/+$/, '');
+  if (v) localStorage.setItem(KEY_BACKEND, v);
+  else localStorage.removeItem(KEY_BACKEND);
+  modal.classList.remove('show');
+  const h = await checkHealth();
+  if (h && h.engine_ready) {
+    bubble('bot', '<span class="who">Nour-AI</span>تم الاتصال بخادم FoxSD ✅ (' + h.company + ').');
+  }
+};
+
+(async () => {
+  const h = await checkHealth();
+  try {
+    const r = await fetch(backend() + '/api/history?session_id=' + SESSION, {cache: 'no-store'});
+    const data = await r.json();
+    if (data.messages && data.messages.length) {
+      data.messages.forEach(m => bubble(m.role === 'user' ? 'user' : 'bot',
+        '<span class="who">' + (m.role === 'user' ? 'أنت' : 'Nour-AI') + '</span>' +
+        String(m.content).replace(/</g, '&lt;')));
+      return;
+    }
+  } catch {}
+  bubble('bot', '<span class="who">Nour-AI</span>مرحبًا 👋 أنا <b>Nour-AI</b> من <b>FoxSD</b>.<br>' +
+    'اكتب طلبك وسأبنيه لك فعليًا — موقعًا، برنامجًا، أو نظامًا كاملًا — ثم أختبره بنفسي.');
+  if (!h || !h.engine_ready) {
+    bubble('bot', '<span class="who">Nour-AI</span>⚠️ الخادم غير متاح الآن. اضبط عنوان خادم FoxSD من زر ⚙ ليعمل الوكيل.');
+  }
+  renderSuggestions();
+})();
+</script>
+</body>
+</html>

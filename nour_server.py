@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import nour_core as core
+import models as catalog
 
 app = FastAPI(
     title=f"{core.BRAND['name']} — {core.BRAND['company']}",
@@ -29,7 +30,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-WEB_FILE = Path(__file__).with_name("nour_web.html")
+WEB_FILE = Path(__file__).with_name("index.html")
 SITE_DIR = Path(__file__).with_name("site")
 if SITE_DIR.is_dir():
     app.mount("/site", StaticFiles(directory=str(SITE_DIR), html=True), name="site")
@@ -42,16 +43,32 @@ def sse(obj: dict) -> str:
 class ChatIn(BaseModel):
     session_id: str = "default"
     message: str
+    private: bool = False
 
 
 class BuildIn(BaseModel):
     session_id: str = "default"
     request: str
+    private: bool = False
+
+
+class SearchIn(BaseModel):
+    query: str = ""
+    task: str = ""
 
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
-    return WEB_FILE.read_text("utf-8")
+    html = WEB_FILE.read_text("utf-8")
+    # يضمّ الخادم عنوانه الحالي في الصفحة المخدومة حتى لا يبقى عنوان ثابت قديم.
+    public = os.environ.get("FOXSD_PUBLIC_URL", "").rstrip("/")
+    if public:
+        html = html.replace(
+            "<script>",
+            f"<script>window.NOUR_BACKEND = {json.dumps(public)};</script>\n<script>",
+            1,
+        )
+    return html
 
 
 @app.get("/api/health")
@@ -62,12 +79,39 @@ def health() -> dict:
         "company": core.BRAND["company"],
         "email": core.BRAND["email"],
         "engine_ready": core.engine_ready(),
+        "models": catalog.stats()["count"],
+        "families": catalog.stats()["families"],
+        "private_mode": True,
+        "unrestricted": True,
     }
 
 
 @app.get("/api/sessions")
 def sessions() -> dict:
     return {"sessions": core.list_sessions()}
+
+
+@app.get("/api/models")
+def models_list() -> dict:
+    return {
+        "stats": catalog.stats(),
+        "families": catalog.FAMILIES,
+        "models": catalog.all_models(),
+    }
+
+
+@app.get("/api/models/report")
+def models_report() -> dict:
+    return {"report": catalog.report()}
+
+
+@app.post("/api/models/search")
+def models_search(req: SearchIn) -> dict:
+    if req.task:
+        hits = catalog.pick(req.task)
+    else:
+        hits = catalog.search(req.query)
+    return {"count": len(hits), "models": hits}
 
 
 @app.get("/api/history")
@@ -89,7 +133,7 @@ def chat(req: ChatIn) -> StreamingResponse:
     def generate() -> object:
         if build:
             yield sse({"type": "build_start", "message": message})
-            result = core.build_project(message, on_event=None)
+            result = core.build_project(message, on_event=None, private=req.private)
             session.setdefault("messages", []).append(
                 {"role": "user", "content": message}
             )
@@ -103,13 +147,14 @@ def chat(req: ChatIn) -> StreamingResponse:
                     "text": result["summary"],
                     "project": result["slug"],
                     "files": result["files"],
+                    "private": req.private,
                 }
             )
             return
 
         queue: list[dict] = []
         result = core.chat_turn(
-            session, message, on_event=lambda e: queue.append(e)
+            session, message, on_event=lambda e: queue.append(e), private=req.private
         )
         for event in queue:
             if event.get("type") == "token":
@@ -128,13 +173,14 @@ def build(req: BuildIn) -> StreamingResponse:
 
     def generate() -> object:
         yield sse({"type": "build_start", "message": request})
-        result = core.build_project(request)
+        result = core.build_project(request, private=req.private)
         yield sse(
             {
                 "type": "done",
                 "text": result["summary"],
                 "project": result["slug"],
                 "files": result["files"],
+                "private": req.private,
             }
         )
 

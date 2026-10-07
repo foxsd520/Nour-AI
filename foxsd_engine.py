@@ -121,8 +121,10 @@ def _clip(text: str) -> str:
     return text[:MAX_OUTPUT] + f"\n…(اقتُطع، الطول الكلي {len(text)} حرف)"
 
 
-def _resolve(workspace: Path, path: str) -> Path:
+def _resolve(workspace: Path, path: str, unrestricted: bool = False) -> Path:
     target = (workspace / path).resolve()
+    if unrestricted:
+        return target
     root = workspace.resolve()
     if target != root and root not in target.parents:
         raise ValueError("المسار خارج مساحة المشروع")
@@ -149,15 +151,16 @@ def tool_terminal(workspace: Path, command: str, timeout: int = 300) -> str:
     return _clip("\n".join(parts))
 
 
-def tool_create_file(workspace: Path, path: str, content: str) -> str:
-    target = _resolve(workspace, path)
+def tool_create_file(workspace: Path, path: str, content: str, unrestricted: bool = False) -> str:
+    target = _resolve(workspace, path, unrestricted)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, "utf-8")
     return f"تم إنشاء {path} ({len(content)} حرف, {len(content.splitlines())} سطر)."
 
 
-def tool_read_file(workspace: Path, path: str, start: int = 1, end: int = 0) -> str:
-    target = _resolve(workspace, path)
+def tool_read_file(workspace: Path, path: str, start: int = 1, end: int = 0,
+                   unrestricted: bool = False) -> str:
+    target = _resolve(workspace, path, unrestricted)
     if not target.is_file():
         return f"الملف غير موجود: {path}"
     lines = target.read_text("utf-8", errors="replace").splitlines()
@@ -167,8 +170,8 @@ def tool_read_file(workspace: Path, path: str, start: int = 1, end: int = 0) -> 
     return _clip(body)
 
 
-def tool_list_files(workspace: Path, path: str = ".") -> str:
-    target = _resolve(workspace, path)
+def tool_list_files(workspace: Path, path: str = ".", unrestricted: bool = False) -> str:
+    target = _resolve(workspace, path, unrestricted)
     if not target.exists():
         return f"المسار غير موجود: {path}"
     if target.is_file():
@@ -182,8 +185,8 @@ def tool_list_files(workspace: Path, path: str = ".") -> str:
     return _clip("\n".join(rows) or "(فارغ)")
 
 
-def tool_delete_file(workspace: Path, path: str) -> str:
-    target = _resolve(workspace, path)
+def tool_delete_file(workspace: Path, path: str, unrestricted: bool = False) -> str:
+    target = _resolve(workspace, path, unrestricted)
     if target.is_file():
         target.unlink()
         return f"حُذف {path}"
@@ -278,17 +281,20 @@ AGENT_TOOLS = [
 ]
 
 _TOOL_IMPL = {
-    "terminal": lambda ws, a: tool_terminal(ws, a.get("command", "")),
-    "create_file": lambda ws, a: tool_create_file(ws, a.get("path", ""), a.get("content", "")),
-    "read_file": lambda ws, a: tool_read_file(
-        ws, a.get("path", ""), int(a.get("start", 1) or 1), int(a.get("end", 0) or 0)
+    "terminal": lambda ws, a, u: tool_terminal(ws, a.get("command", "")),
+    "create_file": lambda ws, a, u: tool_create_file(
+        ws, a.get("path", ""), a.get("content", ""), u
     ),
-    "list_files": lambda ws, a: tool_list_files(ws, a.get("path", ".")),
-    "delete_file": lambda ws, a: tool_delete_file(ws, a.get("path", "")),
+    "read_file": lambda ws, a, u: tool_read_file(
+        ws, a.get("path", ""), int(a.get("start", 1) or 1), int(a.get("end", 0) or 0), u
+    ),
+    "list_files": lambda ws, a, u: tool_list_files(ws, a.get("path", "."), u),
+    "delete_file": lambda ws, a, u: tool_delete_file(ws, a.get("path", ""), u),
 }
 
 
-def execute_tool(workspace: Path, name: str, arguments: str) -> str:
+def execute_tool(workspace: Path, name: str, arguments: str,
+                 unrestricted: bool = False) -> str:
     if name == "finish":
         return ""
     impl = _TOOL_IMPL.get(name)
@@ -299,7 +305,7 @@ def execute_tool(workspace: Path, name: str, arguments: str) -> str:
     except json.JSONDecodeError:
         return "تعذّر قراءة معاملات الأداة."
     try:
-        return impl(workspace, args)
+        return impl(workspace, args, unrestricted)
     except Exception as exc:  # noqa: BLE001
         return f"خطأ في تنفيذ {name}: {type(exc).__name__}: {exc}"
 
@@ -325,6 +331,7 @@ def run_agent(
     on_event=None,
     max_steps: int = 40,
     temperature: float = 0.3,
+    unrestricted: bool = False,
 ) -> str:
     """يشغّل الوكيل حتى إعلان الانتهاء. يعيد الملخص النهائي."""
     workspace = Path(workspace)
@@ -380,7 +387,7 @@ def run_agent(
             except json.JSONDecodeError:
                 args = {}
             emit("tool", name=tc["name"], brief=_brief(tc["name"], args))
-            result = execute_tool(workspace, tc["name"], tc["arguments"])
+            result = execute_tool(workspace, tc["name"], tc["arguments"], unrestricted)
             emit("result", name=tc["name"], text=result)
             convo.append(
                 {"role": "tool", "tool_call_id": tc["id"], "content": result}

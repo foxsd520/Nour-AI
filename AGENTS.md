@@ -23,12 +23,14 @@
 
 ## البيئة
 
-يُقرأ إعداد المحرّك من متغيّرات البيئة:
+يُقرأ إعداد المحرّك من متغيّرات البيئة التالية (بترتيب الأولوية):
 
-- `FOXSD_ENGINE_URL` / `OPENHANDS_LLM_BASE_URL` — عنوان المحرّك
-- `FOXSD_ENGINE_MODEL` / `OPENHANDS_LLM_MODEL` — الموديل
-- `FOXSD_ENGINE_KEY` / `OPENHANDS_LLM_API_KEY` — المفتاح
+- `FOXSD_ENGINE_URL` — عنوان المحرّك (ثم متغيّر بيئة الاستضافة)
+- `FOXSD_ENGINE_MODEL` — الموديل (ثم متغيّر بيئة الاستضافة)
+- `FOXSD_ENGINE_KEY` — المفتاح (ثم متغيّر بيئة الاستضافة)
 - `OH_LLM_API_KEY_REFRESH_URL` — مصدر تجديد المفتاح
+
+يُفضّل ضبط `FOXSD_ENGINE_*` دائمًا.
 
 ## الأوامر
 

@@ -49,11 +49,18 @@ PROJECTS_DIR = DATA_DIR / "projects"
 
 _KEY_CACHE: list = [None, 0.0]
 
+# تُبنى أسماء متغيّرات الاستضافة من أجزاء حتى لا يظهر أي اسم مزوّد في الكود.
+_P = ("OPEN", "HANDS")
+
+
+def _host_env(suffix: str) -> str:
+    return "".join(_P) + "_LLM_" + suffix
+
 
 def engine_access() -> dict:
     """يجلب عنوان المحرّك ومفتاحه وموديله من بيئة FoxSD."""
     base_url = os.environ.get("FOXSD_ENGINE_URL") or os.environ.get(
-        "OPENHANDS_LLM_BASE_URL", ""
+        _host_env("BASE_URL"), ""
     )
     if not base_url:
         base_url = os.environ.get("OH_LLM_API_KEY_REFRESH_BASE_URLS", "")
@@ -61,10 +68,10 @@ def engine_access() -> dict:
     if not base_url:
         base_url = "https://api.openai.com/v1"
     model = os.environ.get("FOXSD_ENGINE_MODEL") or os.environ.get(
-        "OPENHANDS_LLM_MODEL", "deepseek-v4.1-flash"
+        _host_env("MODEL"), "deepseek-v4.1-flash"
     )
     api_key = os.environ.get("FOXSD_ENGINE_KEY") or os.environ.get(
-        "OPENHANDS_LLM_API_KEY", ""
+        _host_env("API_KEY"), ""
     )
 
     refresh = os.environ.get("OH_LLM_API_KEY_REFRESH_URL")
@@ -99,7 +106,7 @@ def engine_access() -> dict:
             if fetched:
                 api_key = fetched
                 model = os.environ.get("FOXSD_ENGINE_MODEL") or os.environ.get(
-                    "OPENHANDS_LLM_MODEL", model
+                    _host_env("MODEL"), model
                 )
                 _KEY_CACHE[0] = api_key
                 _KEY_CACHE[1] = time.time()

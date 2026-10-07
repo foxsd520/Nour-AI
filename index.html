@@ -269,7 +269,7 @@ async function checkHealth() {
   try {
     const r = await fetch(backend() + '/api/health', {cache: 'no-store'});
     const j = await r.json();
-    if (j.private_mode) PRIVATE = true;
+    if (j.private_mode) { PRIVATE = true; paintPrivate(); }
     if (j.engine_ready) setStatus('on', 'متصل — ' + j.company);
     else setStatus('off', 'الخادم متصل بلا محرّك');
     return j;
